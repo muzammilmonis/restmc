@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "arcanicvisuals",
   "version": "${version}",
-  "name": "Arcanic Visuals",
-  "description": "Визуальный клиент Arcanic: меню, HUD, эффекты ударов, следы, прицел и анимации рук. Только визуал — механика боя не меняется.",
+  "name": "RestMC Visuals",
+  "description": "Визуальный клиент RestMC: меню, HUD, эффекты ударов, следы, прицел и анимации рук. Только визуал — механика боя не меняется.",
   "authors": ["Arcanic"],
   "contact": {
     "homepage": "https://arcanic.su",
