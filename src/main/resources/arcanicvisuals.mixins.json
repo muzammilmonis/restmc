@@ -37,6 +37,8 @@
     "LoadingOverlayMixin",
     "LevelLoadingScreenMixin",
     "FrontEndScreenMixin",
+    "RestMcPxBrandingMixin",
+    "RestMcLangBrandingMixin",
     "MinecraftSessionAccess",
     "TrueTypeGlyphMixin",
     "GameRendererAccess",
