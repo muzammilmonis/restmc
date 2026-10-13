@@ -39,6 +39,7 @@
     "FrontEndScreenMixin",
     "RestMcPxBrandingMixin",
     "RestMcLangBrandingMixin",
+    "RestMcSyncEndpointMixin",
     "MinecraftSessionAccess",
     "TrueTypeGlyphMixin",
     "GameRendererAccess",
