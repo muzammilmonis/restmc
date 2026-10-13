@@ -24,25 +24,25 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HexFormat;
 
-/** The installed Arcanic launcher. */
+/** The installed RestMC launcher. */
 public final class Launcher {
     private Launcher() {}
 
     public static Path exe() {
-        String started = System.getProperty("arcanic.launcher", "");
+        String started = System.getProperty("restmc.launcher", "");
         if (!started.isEmpty() && Files.isRegularFile(Path.of(started))) return Path.of(started);
         String local = System.getenv("LOCALAPPDATA");
         if (local == null) return null;
-        Path installed = Path.of(local, "Programs", "Arcanic", "Arcanic.exe");
+        Path installed = Path.of(local, "Programs", "RestMC", "RestMC.exe");
         return Files.isRegularFile(installed) ? installed : null;
     }
 
     /** Can the launcher that started the game read the media session for us (--media)? Older ones cannot. */
     public static boolean media() {
-        return System.getProperty("arcanic.helpers", "").contains("media") && exe() != null;
+        return System.getProperty("restmc.helpers", "").contains("media") && exe() != null;
     }
 
-    // tokens on disk are encrypted for this Windows user (DPAPI), the same way the launcher keeps its own
+    // Tokens on disk are encrypted for this Windows user (DPAPI), the same way the launcher keeps its own.
 
     static String seal(String plain) {
         if (plain.isEmpty()) return "";
