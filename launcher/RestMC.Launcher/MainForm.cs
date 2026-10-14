@@ -1,0 +1,43 @@
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Net;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace RestMCLauncher;
+
+internal sealed class MainForm : Form
+{
+    private readonly LauncherSettings settings=LauncherSettings.Load();
+    private readonly RestAuth rest=new(); private readonly MicrosoftAuth ms=new(); private readonly Label restState=new(),msState=new(),status=new();private readonly ProgressBar progress=new();private readonly Button play=new();private readonly NumericUpDown ram=new();private readonly TextBox gameDir=new();
+    private readonly Color bg=Color.FromArgb(8,11,17),panel=Color.FromArgb(15,19,27),gold=Color.FromArgb(238,190,82),muted=Color.FromArgb(151,158,174),text=Color.FromArgb(238,241,247);
+    public MainForm()
+    {
+        Text="RestMC";StartPosition=FormStartPosition.CenterScreen;ClientSize=new Size(1120,700);MinimumSize=new Size(980,620);BackColor=bg;ForeColor=text;Font=new Font("Segoe UI",10);Icon=SystemIcons.Application;
+        BuildUi();Shown+=async(_,__)=>{await rest.RefreshAsync();RefreshAccounts();};FormClosing+=(_,__)=>{settings.RamMb=(int)ram.Value;settings.GameDirectory=gameDir.Text.Trim();settings.Save();};
+    }
+    private void BuildUi()
+    {
+        var top=new Panel{Dock=DockStyle.Top,Height=76,BackColor=Color.FromArgb(10,13,20),Padding=new Padding(28,16,28,12)};Controls.Add(top);var brand=new Label{Text="RestMC",Font=new Font("Segoe UI Semibold",22),ForeColor=text,AutoSize=true,Location=new Point(28,16)};top.Controls.Add(brand);var ver=new Label{Text=$"{AppInfo.Version}  •  Minecraft {AppInfo.MinecraftVersion}",ForeColor=muted,AutoSize=true,Location=new Point(165,27)};top.Controls.Add(ver);
+        var body=new TableLayoutPanel{Dock=DockStyle.Fill,Padding=new Padding(28,24,28,24),ColumnCount=2,RowCount=1,BackColor=bg};body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,64));body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,36));Controls.Add(body);
+        var left=new Panel{Dock=DockStyle.Fill,Padding=new Padding(26),BackColor=panel,Margin=new Padding(0,0,14,0)};var right=new Panel{Dock=DockStyle.Fill,Padding=new Padding(22),BackColor=panel,Margin=new Padding(14,0,0,0)};body.Controls.Add(left,0,0);body.Controls.Add(right,1,0);
+        var title=new Label{Text="Minecraft, refined.",Font=new Font("Segoe UI Semibold",30),ForeColor=text,AutoSize=true,Location=new Point(24,24)};left.Controls.Add(title);var sub=new Label{Text="RestMC installs and launches its own Fabric profile, keeps the client updated, and syncs your RestMC identity.",ForeColor=muted,AutoSize=false,Size=new Size(590,54),Location=new Point(28,78)};left.Controls.Add(sub);
+        play=Btn("PLAY",gold,Color.FromArgb(20,18,10));play.Font=new Font("Segoe UI Semibold",17);play.Size=new Size(250,58);play.Location=new Point(28,158);play.Click+=async(_,__)=>await PlayAsync();left.Controls.Add(play);
+        var openFolder=Btn("Open game folder",Color.FromArgb(37,43,55),text);openFolder.Size=new Size(180,40);openFolder.Location=new Point(292,167);openFolder.Click+=(_,__)=>{Directory.CreateDirectory(gameDir.Text);Process.Start(new ProcessStartInfo(gameDir.Text){UseShellExecute=true});};left.Controls.Add(openFolder);
+        status=new Label{Text="Ready",ForeColor=muted,Location=new Point(28,240),AutoSize=false,Size=new Size(590,24)};left.Controls.Add(status);progress=new ProgressBar{Location=new Point(28,272),Size=new Size(580,8),Style=ProgressBarStyle.Marquee,MarqueeAnimationSpeed=0};left.Controls.Add(progress);
+        var settingsTitle=new Label{Text="Installation",Font=new Font("Segoe UI Semibold",15),ForeColor=text,AutoSize=true,Location=new Point(28,330)};left.Controls.Add(settingsTitle);left.Controls.Add(new Label{Text="Game folder",ForeColor=muted,AutoSize=true,Location=new Point(28,373)});gameDir=new TextBox{Text=settings.GameDirectory,Location=new Point(28,397),Size=new Size(500,34),BackColor=Color.FromArgb(9,12,18),ForeColor=text,BorderStyle=BorderStyle.FixedSingle};left.Controls.Add(gameDir);var browse=Btn("…",Color.FromArgb(37,43,55),text);browse.Size=new Size(48,34);browse.Location=new Point(540,396);browse.Click+=(_,__)=>{using var f=new FolderBrowserDialog{InitialDirectory=gameDir.Text};if(f.ShowDialog()==DialogResult.OK)gameDir.Text=f.SelectedPath;};left.Controls.Add(browse);
+        left.Controls.Add(new Label{Text="Memory",ForeColor=muted,AutoSize=true,Location=new Point(28,453)});ram=new NumericUpDown{Minimum=2048,Maximum=32768,Increment=512,Value=Math.Clamp(settings.RamMb,2048,32768),Location=new Point(28,478),Size=new Size(130,34),BackColor=Color.FromArgb(9,12,18),ForeColor=text,BorderStyle=BorderStyle.FixedSingle};left.Controls.Add(ram);left.Controls.Add(new Label{Text="MB",ForeColor=muted,AutoSize=true,Location=new Point(165,482)});
+        var accTitle=new Label{Text="Accounts",Font=new Font("Segoe UI Semibold",17),ForeColor=text,AutoSize=true,Location=new Point(20,18)};right.Controls.Add(accTitle);
+        right.Controls.Add(new Label{Text="RestMC",ForeColor=gold,AutoSize=true,Location=new Point(20,66)});restState=new Label{Text="Not connected",ForeColor=muted,Location=new Point(20,91),AutoSize=false,Size=new Size(300,42)};right.Controls.Add(restState);var restLogin=Btn("Login",gold,Color.FromArgb(20,18,10));restLogin.Size=new Size(112,38);restLogin.Location=new Point(20,136);restLogin.Click+=async(_,__)=>await RunBusy(async()=>{await rest.LoginAsync(this);RefreshAccounts();});right.Controls.Add(restLogin);var signup=Btn("Create",Color.FromArgb(37,43,55),text);signup.Size=new Size(112,38);signup.Location=new Point(140,136);signup.Click+=(_,__)=>Process.Start(new ProcessStartInfo(AppInfo.Api+"/signup/"){UseShellExecute=true});right.Controls.Add(signup);var restOut=Btn("Logout",Color.FromArgb(37,43,55),text);restOut.Size=new Size(112,34);restOut.Location=new Point(20,180);restOut.Click+=async(_,__)=>await RunBusy(async()=>{await rest.LogoutAsync();RefreshAccounts();});right.Controls.Add(restOut);
+        right.Controls.Add(new Label{Text="Microsoft / Minecraft",ForeColor=gold,AutoSize=true,Location=new Point(20,248)});msState=new Label{Text="Not connected",ForeColor=muted,Location=new Point(20,273),AutoSize=false,Size=new Size(300,42)};right.Controls.Add(msState);var msLogin=Btn("Microsoft login",gold,Color.FromArgb(20,18,10));msLogin.Size=new Size(170,38);msLogin.Location=new Point(20,318);msLogin.Click+=async(_,__)=>await RunBusy(async()=>{await ms.LoginAsync();RefreshAccounts();});right.Controls.Add(msLogin);var msOut=Btn("Remove",Color.FromArgb(37,43,55),text);msOut.Size=new Size(100,38);msOut.Location=new Point(198,318);msOut.Click+=(_,__)=>{ms.Logout();RefreshAccounts();};right.Controls.Add(msOut);
+        var note=new Label{Text="Login happens in your browser. Passwords are never entered into RestMC. Tokens are stored with Windows DPAPI.",ForeColor=muted,AutoSize=false,Size=new Size(300,84),Location=new Point(20,390)};right.Controls.Add(note);var web=Btn("mc.tiers.rest",Color.FromArgb(37,43,55),text);web.Size=new Size(150,38);web.Location=new Point(20,500);web.Click+=(_,__)=>Process.Start(new ProcessStartInfo(AppInfo.Api){UseShellExecute=true});right.Controls.Add(web);
+    }
+    private Button Btn(string s,Color back,Color fore)=>new(){Text=s,BackColor=back,ForeColor=fore,FlatStyle=FlatStyle.Flat,Cursor=Cursors.Hand};
+    private void RefreshAccounts(){restState.Text=rest.Current is null?"Not connected":$"{rest.Current.Name}\r\n{rest.Current.Plan.ToUpperInvariant()}";msState.Text=ms.Current is null?"Not connected":$"{ms.Current.Name}\r\nMinecraft Java";}
+    private async Task RunBusy(Func<Task> work){try{SetBusy(true);await work();}catch(Exception ex){MessageBox.Show(this,ex.Message,"RestMC",MessageBoxButtons.OK,MessageBoxIcon.Error);}finally{SetBusy(false);}}
+    private void SetBusy(bool b){play.Enabled=!b;progress.MarqueeAnimationSpeed=b?25:0;status.Text=b?"Working…":"Ready";UseWaitCursor=b;}
+    private async Task PlayAsync(){await RunBusy(async()=>{if(ms.Current is null)throw new InvalidOperationException("Sign in with Microsoft first.");if(rest.Current is null)throw new InvalidOperationException("Sign in to RestMC first.");settings.RamMb=(int)ram.Value;settings.GameDirectory=gameDir.Text.Trim();settings.Save();rest.WriteBridge();status.Text="Refreshing Microsoft session…";await ms.EnsureFreshAsync();var installer=new GameInstaller(settings);using var cts=new CancellationTokenSource();var launch=await installer.PrepareGameAsync(ms.Current!,s=>BeginInvoke(()=>status.Text=s),cts.Token);status.Text="Launching Minecraft…";installer.Launch(launch);WindowState=FormWindowState.Minimized;});}
+}
