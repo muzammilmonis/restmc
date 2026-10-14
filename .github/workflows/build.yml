@@ -1,33 +1,103 @@
-name: Build
+name: Build RestMC
 
 on:
   push:
-    branches: [main]
+    branches: [main, restmc-branding-pass-1]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  client:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 25
-
       - uses: gradle/actions/setup-gradle@v4
-
-      - name: Make the wrapper runnable
+      - name: Make wrapper runnable
         run: chmod +x gradlew
-
-      - name: Check formatting
-        run: ./gradlew spotlessCheck
-
-      - name: Build
-        run: ./gradlew build
-
+      - name: Format
+        run: ./gradlew spotlessApply
+      - name: Build client
+        run: ./gradlew --no-daemon build
+      - name: Stage client
+        shell: bash
+        run: |
+          mkdir -p release
+          JAR=$(find build/libs -maxdepth 1 -type f -name 'restmc-*.jar' ! -name '*sources*' | head -n1)
+          test -n "$JAR"
+          cp "$JAR" release/RestMC-1.6.7.jar
+          sha256sum release/RestMC-1.6.7.jar > release/RestMC-1.6.7.sha256
       - uses: actions/upload-artifact@v4
         with:
-          name: restmc
-          path: build/libs/*.jar
+          name: restmc-client
+          path: release/*
+
+  launcher:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build RestMC launcher
+        shell: pwsh
+        run: |
+          dotnet restore launcher/RestMC.Launcher/RestMC.Launcher.csproj
+          dotnet publish launcher/RestMC.Launcher/RestMC.Launcher.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o launcher/publish
+      - name: Prepare MSI license
+        shell: pwsh
+        run: |
+          $license = Get-Content LICENSE -Raw
+          $license = $license.Replace('\','\\').Replace('{','\{').Replace('}','\}').Replace("`r`n",'\par ').Replace("`n",'\par ')
+          Set-Content launcher/LICENSE.rtf ("{\rtf1\ansi\deff0 " + $license + "}") -Encoding ASCII
+      - name: Ensure WiX Toolset
+        shell: pwsh
+        run: |
+          $candle = Get-Command candle.exe -ErrorAction SilentlyContinue
+          if (-not $candle) { choco install wixtoolset --no-progress -y }
+      - name: Build MSI
+        shell: pwsh
+        working-directory: launcher
+        run: |
+          $candle = (Get-Command candle.exe -ErrorAction SilentlyContinue).Source
+          $light = (Get-Command light.exe -ErrorAction SilentlyContinue).Source
+          if (-not $candle) {
+            $candle = (Get-ChildItem 'C:\Program Files (x86)\WiX Toolset*\bin\candle.exe' | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+            $light = Join-Path (Split-Path $candle) 'light.exe'
+          }
+          & $candle -nologo -arch x64 -ext WixUIExtension Package.wxs -out Package.wixobj
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $light -nologo -ext WixUIExtension Package.wixobj -out RestMC-Setup-1.6.7.msi
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item release -ItemType Directory -Force | Out-Null
+          Copy-Item publish/RestMC.exe release/RestMC.exe
+          Copy-Item RestMC-Setup-1.6.7.msi release/RestMC-Setup-1.6.7.msi
+          Get-FileHash release/RestMC.exe -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  RestMC.exe" } | Set-Content release/RestMC.exe.sha256
+          Get-FileHash release/RestMC-Setup-1.6.7.msi -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  RestMC-Setup-1.6.7.msi" } | Set-Content release/RestMC-Setup-1.6.7.msi.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: restmc-windows
+          path: launcher/release/*
+
+  release:
+    if: github.event_name == 'push'
+    needs: [client, launcher]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: restmc-1.6.7-build-${{ github.run_number }}
+          name: RestMC 1.6.7 build ${{ github.run_number }}
+          prerelease: true
+          generate_release_notes: false
+          files: release/*
