@@ -1,0 +1,8 @@
+RestMC 1.6.7
+Copyright (c) Rest Studio contributors.
+
+RestMC is based on Arcanic Visuals and is distributed under GPL-3.0-or-later.
+The complete corresponding source and upstream notices are available at:
+https://github.com/muzammilmonis/restmc
+
+The installer does not include passwords. RestMC website login and Microsoft login use the system browser.
