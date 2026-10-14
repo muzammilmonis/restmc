@@ -44,7 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.util.Util;
 
-/** The Arcanic account inside the game. */
+/** The RestMC account inside the game. */
 public final class ArcanicAccount {
     private ArcanicAccount() {}
 
@@ -55,9 +55,9 @@ public final class ArcanicAccount {
         SIGNED_IN
     }
 
-    private static final Path SAVED = FabricLoader.getInstance().getConfigDir().resolve("arcanicvisuals-account.txt");
+    private static final Path SAVED = FabricLoader.getInstance().getConfigDir().resolve("restmc-account.txt");
     // read by the launcher: "in", the token and the login after a sign-in here; "out" and the token after a sign-out
-    private static final Path FOR_LAUNCHER = Path.of(System.getProperty("user.home"), ".arcanic", "game-session.txt");
+    private static final Path FOR_LAUNCHER = Path.of(System.getProperty("user.home"), ".restmc", "game-session.txt");
     private static final HttpClient HTTP =
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
     private static volatile State state = State.SIGNED_OUT;
@@ -122,7 +122,7 @@ public final class ArcanicAccount {
                 forget();
                 state = State.SIGNED_OUT;
             } else {
-                state = State.SIGNED_IN; // offline: still signed in, the plan is not known for now
+                state = State.SIGNED_IN;
                 say("Сервер недоступен", true);
                 asked = false;
             }
@@ -159,7 +159,7 @@ public final class ArcanicAccount {
         cancel = false;
         state = State.WAITING;
         say("Заверши вход на сайте", false);
-        Thread t = new Thread(ArcanicAccount::waitForCode, "Arcanic sign-in");
+        Thread t = new Thread(ArcanicAccount::waitForCode, "RestMC sign-in");
         t.setDaemon(true);
         t.start();
     }
@@ -250,7 +250,7 @@ public final class ArcanicAccount {
         }
         profile(session);
         tellLauncher("in", token, name);
-        say("Вход в Arcanic выполнен", false);
+        say("Вход в RestMC выполнен", false);
     }
 
     public static void signOut() {
@@ -263,7 +263,7 @@ public final class ArcanicAccount {
         name = "";
         plan = "";
         state = State.SIGNED_OUT;
-        say("Ты вышел из аккаунта Arcanic", false);
+        say("Ты вышел из аккаунта RestMC", false);
     }
 
     private static void tellLauncher(String what, String token, String login) {

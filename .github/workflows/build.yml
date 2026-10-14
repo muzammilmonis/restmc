@@ -29,5 +29,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: arcanicvisuals
+          name: restmc
           path: build/libs/*.jar
