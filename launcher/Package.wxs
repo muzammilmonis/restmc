@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="RestMC" Language="1033" Version="1.6.7" Manufacturer="Rest Studio" UpgradeCode="B047E11A-DF0D-4C4E-9F72-7A4F5E80F6A1">
+    <Package InstallerVersion="500" Compressed="yes" InstallScope="perUser" Platform="x64" Description="RestMC Launcher" Comments="Installs the RestMC launcher" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RestMC is already installed." Schedule="afterInstallInitialize" />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="INSTALLDESKTOPSHORTCUT" Value="1" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch RestMC" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <WixVariable Id="WixUILicenseRtf" Value="LICENSE.rtf" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="LocalAppDataFolder">
+        <Directory Id="ProgramsFolder" Name="Programs">
+          <Directory Id="INSTALLFOLDER" Name="RestMC" />
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="RestMCStartMenuFolder" Name="RestMC" />
+      </Directory>
+      <Directory Id="DesktopFolder" />
+    </Directory>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="LauncherComponent" Guid="B5D8F0EC-8846-40B3-9D8C-D3F31366EB57" Win64="yes">
+        <File Id="RestMCExe" Source="publish\RestMC.exe" KeyPath="yes" />
+        <File Id="LicenseNotice" Source="LICENSE-NOTICE.txt" />
+        <RegistryValue Root="HKCU" Key="Software\Rest Studio\RestMC" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="no" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="RestMCStartMenuFolder">
+      <Component Id="StartMenuShortcutComponent" Guid="EF62A965-22B2-4A71-9DF8-F272A4839C1A">
+        <Shortcut Id="StartMenuShortcut" Name="RestMC" Description="RestMC Launcher" Target="[#RestMCExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\Rest Studio\RestMC" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="DesktopShortcutComponent" Guid="D607C0B4-B74B-4C5B-9539-EB0F6FCF9202">
+        <Condition>INSTALLDESKTOPSHORTCUT</Condition>
+        <Shortcut Id="DesktopShortcut" Name="RestMC" Description="RestMC Launcher" Target="[#RestMCExe]" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\Rest Studio\RestMC" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <Feature Id="MainFeature" Title="RestMC" Level="1">
+      <ComponentRef Id="LauncherComponent" />
+      <ComponentRef Id="StartMenuShortcutComponent" />
+      <ComponentRef Id="DesktopShortcutComponent" />
+    </Feature>
+
+    <CustomAction Id="LaunchRestMC" FileKey="RestMCExe" ExeCommand="" Execute="immediate" Return="asyncNoWait" Impersonate="yes" />
+
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <Dialog Id="RestMCShortcutDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="24" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Choose shortcuts" />
+        <Control Id="Description" Type="Text" X="25" Y="52" Width="320" Height="36" Text="Choose whether RestMC should create a shortcut on your desktop." />
+        <Control Id="DesktopCheck" Type="CheckBox" X="25" Y="104" Width="300" Height="18" Property="INSTALLDESKTOPSHORTCUT" CheckBoxValue="1" Text="Create a desktop shortcut" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="Back">
+          <Publish Event="NewDialog" Value="InstallDirDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Next">
+          <Publish Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+      </Dialog>
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="RestMCShortcutDlg" Order="2">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="RestMCShortcutDlg" Order="2">NOT Installed</Publish>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchRestMC">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 AND NOT Installed</Publish>
+    </UI>
+  </Product>
+</Wix>
